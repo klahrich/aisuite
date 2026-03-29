@@ -13,6 +13,42 @@ It’s designed for low learning curve — so you can focus on building AI syste
 
 ---
 
+## Fork Changes
+
+This fork adds a few Python-only behaviors that are not part of the upstream README:
+
+- OpenAI-compatible provider configs accept `extra_headers`, which is normalized to the underlying SDK header config.
+- Explicit `base_url` values are preserved for OpenAI-compatible providers in this fork, which is useful for local or self-hosted gateways.
+- Callable Python tools now default to automatic execution even if `max_turns` is omitted. The public default cap is `25` turns.
+- Plain JSON tool specs still use the manual tool-calling path unless you explicitly opt into the automatic loop.
+- `return_tool_results=True` executes the first requested tool batch and returns the tool results to the caller without sending them back to the LLM.
+
+Example for an OpenAI-compatible local gateway:
+
+```python
+import aisuite as ai
+
+client = ai.Client(
+    {
+        "openai": {
+            "base_url": "http://localhost:8080/v1",
+            "extra_headers": {"x-bf-cache-key": "session-123"},
+        }
+    }
+)
+
+response = client.chat.completions.create(
+    model="openai:openai/gpt-4o",
+    messages=[{"role": "user", "content": "Generate a random number between 0 and 1."}],
+    tools=[my_python_tool],
+    return_tool_results=True,
+)
+
+print(response.choices[0].tool_results)
+```
+
+---
+
 ## Key Features
 
 `aisuite` is designed to eliminate the complexity of working with multiple LLM providers while keeping your code simple and portable. Whether you're building a chatbot, an agentic application, or experimenting with different models, `aisuite` provides the abstractions you need without getting in your way.
