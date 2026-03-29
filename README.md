@@ -15,7 +15,7 @@ It’s designed for low learning curve — so you can focus on building AI syste
 
 ## Fork Changes
 
-This fork adds a few Python-only behaviors that are not part of the upstream README:
+This repository is a fork of the upstream [`andrewyng/aisuite`](https://github.com/andrewyng/aisuite) project and includes a few Python-only behaviors that are not part of the upstream README:
 
 - OpenAI-compatible provider configs accept `extra_headers`, which is normalized to the underlying SDK header config.
 - Explicit `base_url` values are preserved for OpenAI-compatible providers in this fork, which is useful for local or self-hosted gateways.
