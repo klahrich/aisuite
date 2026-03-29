@@ -47,6 +47,8 @@ response = client.chat.completions.create(
 print(response.choices[0].tool_results)
 ```
 
+See also: `examples/bifrost_gateway_tool_results.py`
+
 ---
 
 ## Key Features
