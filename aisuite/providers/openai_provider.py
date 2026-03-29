@@ -1,7 +1,13 @@
 import openai
 import os
 from typing import Union, BinaryIO, AsyncGenerator
-from aisuite.provider import Provider, LLMError, ASRError, Audio
+from aisuite.provider import (
+    Provider,
+    LLMError,
+    ASRError,
+    Audio,
+    normalize_openai_compatible_config,
+)
 from aisuite.providers.message_converter import OpenAICompliantMessageConverter
 from aisuite.framework.message import (
     TranscriptionResult,
@@ -23,6 +29,7 @@ class OpenaiProvider(Provider):
             raise ValueError(
                 "OpenAI API key is missing. Please provide it in the config or set the OPENAI_API_KEY environment variable."
             )
+        config = normalize_openai_compatible_config(config)
 
         # NOTE: We could choose to remove above lines for api_key since OpenAI will automatically
         # infer certain values from the environment variables.

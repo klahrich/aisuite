@@ -176,6 +176,137 @@ def test_invalid_model_format_in_create(monkeypatch):
         client.chat.completions.create(invalid_model, messages=messages)
 
 
+def test_return_tool_results_stops_before_follow_up_model_call():
+    """Test that tool results can be returned without requiring max_turns."""
+    client = Client(provider_configs={"openai": {"api_key": "test"}})
+
+    mock_provider = Mock()
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message = Mock()
+    mock_response.choices[0].message.content = None
+    mock_response.choices[0].message.tool_calls = [
+        Mock(
+            id="call_1",
+            function=Mock(
+                name="get_weather", arguments='{"location": "San Francisco"}'
+            ),
+        )
+    ]
+    mock_provider.chat_completions_create.return_value = mock_response
+
+    client.providers["openai"] = mock_provider
+
+    def get_weather(location: str) -> dict:
+        """Return weather data for a location."""
+        return {"location": location, "forecast": "sunny"}
+
+    response = client.chat.completions.create(
+        model="openai:gpt-4o",
+        messages=[{"role": "user", "content": "Weather in San Francisco?"}],
+        tools=[get_weather],
+        return_tool_results=True,
+    )
+
+    assert mock_provider.chat_completions_create.call_count == 1
+    assert response.choices[0].tool_results == [
+        {
+            "tool_call_id": "call_1",
+            "name": "get_weather",
+            "content": {"location": "San Francisco", "forecast": "sunny"},
+        }
+    ]
+    assert len(response.choices[0].intermediate_messages) == 2
+
+
+def test_callable_tools_default_to_automatic_execution_without_max_turns():
+    """Test callable tools use the default automatic loop cap when max_turns is omitted."""
+    client = Client(provider_configs={"openai": {"api_key": "test"}})
+
+    mock_provider = Mock()
+
+    first_response = Mock()
+    first_response.choices = [Mock()]
+    first_response.choices[0].message = Mock()
+    first_response.choices[0].message.content = None
+    first_response.choices[0].message.tool_calls = [
+        Mock(
+            id="call_1",
+            function=Mock(name="get_weather", arguments='{"location": "San Francisco"}'),
+        )
+    ]
+
+    second_response = Mock()
+    second_response.choices = [Mock()]
+    second_response.choices[0].message = Mock()
+    second_response.choices[0].message.content = "Sunny picnic plan"
+    second_response.choices[0].message.tool_calls = None
+
+    mock_provider.chat_completions_create.side_effect = [first_response, second_response]
+    client.providers["openai"] = mock_provider
+
+    def get_weather(location: str) -> dict:
+        """Return weather data for a location."""
+        return {"location": location, "forecast": "sunny"}
+
+    response = client.chat.completions.create(
+        model="openai:gpt-4o",
+        messages=[{"role": "user", "content": "Weather in San Francisco?"}],
+        tools=[get_weather],
+    )
+
+    assert mock_provider.chat_completions_create.call_count == 2
+    assert response.choices[0].message.content == "Sunny picnic plan"
+
+
+def test_json_tool_specs_without_max_turns_stay_in_manual_mode():
+    """Test plain JSON tool specs keep the manual tool-calling path by default."""
+    client = Client(provider_configs={"openai": {"api_key": "test"}})
+
+    mock_provider = Mock()
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message = Mock()
+    mock_response.choices[0].message.content = None
+    mock_response.choices[0].message.tool_calls = [
+        {
+            "id": "call_1",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"location": "San Francisco"}',
+            },
+        }
+    ]
+    mock_provider.chat_completions_create.return_value = mock_response
+    client.providers["openai"] = mock_provider
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather for a city",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {"type": "string"},
+                    },
+                    "required": ["location"],
+                },
+            },
+        }
+    ]
+
+    response = client.chat.completions.create(
+        model="openai:gpt-4o",
+        messages=[{"role": "user", "content": "Weather in San Francisco?"}],
+        tools=tools,
+    )
+
+    assert mock_provider.chat_completions_create.call_count == 1
+    assert response is mock_response
+
+
 class TestClientASR:
     """Test suite for Client ASR functionality - essential tests only."""
 

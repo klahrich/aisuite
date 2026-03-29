@@ -112,8 +112,34 @@ class Chat:
 
 
 class Completions:
+    DEFAULT_MAX_TOOL_TURNS = 25
+
     def __init__(self, client: "Client"):
         self.client = client
+
+    def _format_tool_results(self, tool_calls, results: list) -> list[dict[str, Any]]:
+        """Return structured tool results for callers that stop after execution."""
+        if not isinstance(tool_calls, list):
+            tool_calls = [tool_calls]
+
+        formatted_results = []
+        for tool_call, result in zip(tool_calls, results):
+            if isinstance(tool_call, dict):
+                tool_name = tool_call["function"]["name"]
+                tool_call_id = tool_call["id"]
+            else:
+                tool_name = tool_call.function.name
+                tool_call_id = tool_call.id
+
+            formatted_results.append(
+                {
+                    "tool_call_id": tool_call_id,
+                    "name": tool_name,
+                    "content": result,
+                }
+            )
+
+        return formatted_results
 
     def _process_mcp_configs(self, tools: list) -> tuple[list, list]:
         """
@@ -208,6 +234,35 @@ class Completions:
 
         return response
 
+    def _should_auto_run_tools(
+        self,
+        original_tools: Any,
+        processed_tools: Any,
+        max_turns: Optional[int],
+        return_tool_results: bool,
+    ) -> bool:
+        """
+        Decide whether the automatic tool loop should run.
+
+        Behavior:
+        - ``return_tool_results=True`` always opts into automatic execution
+        - explicit ``max_turns`` opts into automatic execution
+        - callable tools / ``Tools`` / MCP config dicts default to automatic execution
+        - plain JSON tool specs keep the manual path unless explicitly opted in
+        """
+        if return_tool_results or max_turns is not None:
+            return True
+
+        if isinstance(original_tools, Tools):
+            return True
+
+        if isinstance(processed_tools, list) and processed_tools and all(
+            callable(tool) for tool in processed_tools
+        ):
+            return True
+
+        return False
+
     def _tool_runner(
         self,
         provider,
@@ -215,6 +270,7 @@ class Completions:
         messages: list,
         tools: Any,
         max_turns: int,
+        return_tool_results: bool = False,
         **kwargs,
     ):
         """
@@ -278,6 +334,14 @@ class Completions:
             # Add tool messages to intermediate messages
             intermediate_messages.extend(tool_messages)
 
+            if return_tool_results:
+                response.intermediate_responses = intermediate_responses[:-1]
+                response.choices[0].intermediate_messages = intermediate_messages
+                response.choices[0].tool_results = self._format_tool_results(
+                    tool_calls, results
+                )
+                return response
+
             # Add the assistant's response and tool results to messages
             messages.extend([response.choices[0].message, *tool_messages])
 
@@ -293,7 +357,10 @@ class Completions:
     def create(self, model: str, messages: list, **kwargs):
         """
         Create chat completion based on the model, messages, and any extra arguments.
-        Supports automatic tool execution when max_turns is specified.
+        Supports automatic tool execution for callable tools.
+        If max_turns is omitted for callable tools, a default cap of 25 turns is used.
+        If return_tool_results=True, a single automatic tool-execution pass is
+        performed even when max_turns is omitted.
         """
         # Check that correct format is used
         if ":" not in model:
@@ -328,6 +395,8 @@ class Completions:
         # Extract tool-related parameters
         max_turns = kwargs.pop("max_turns", None)
         tools = kwargs.pop("tools", None)
+        return_tool_results = kwargs.pop("return_tool_results", False)
+        original_tools = tools
 
         # Use ExitStack to manage MCP client cleanup automatically
         with ExitStack() as stack:
@@ -339,14 +408,31 @@ class Completions:
                 for mcp_client in mcp_clients:
                     stack.enter_context(mcp_client)
 
-            # Check environment variable before allowing multi-turn tool execution
-            if max_turns is not None and tools is not None:
+            should_auto_run_tools = self._should_auto_run_tools(
+                original_tools,
+                tools,
+                max_turns,
+                return_tool_results,
+            )
+
+            if return_tool_results:
+                effective_max_turns = max_turns if max_turns is not None else 1
+            else:
+                effective_max_turns = (
+                    max_turns
+                    if max_turns is not None
+                    else self.DEFAULT_MAX_TOOL_TURNS
+                )
+
+            # Run the automatic tool loop for callable / MCP-backed tools.
+            if tools is not None and should_auto_run_tools:
                 return self._tool_runner(
                     provider,
                     model_name,
                     messages.copy(),
                     tools,
-                    max_turns,
+                    effective_max_turns,
+                    return_tool_results=return_tool_results,
                     **kwargs,
                 )
 

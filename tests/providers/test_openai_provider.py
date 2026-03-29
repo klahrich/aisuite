@@ -48,6 +48,21 @@ class TestOpenAIProvider:
         assert hasattr(openai_provider, "audio")
         assert hasattr(openai_provider.audio, "transcriptions")
 
+    def test_provider_initialization_accepts_extra_headers_alias(self):
+        """Test that extra_headers is normalized for OpenAI-compatible clients."""
+        with patch("aisuite.providers.openai_provider.openai.OpenAI") as mock_openai:
+            OpenaiProvider(
+                api_key="test-api-key",
+                base_url="http://localhost:1234/v1",
+                extra_headers={"X-Test": "1"},
+            )
+
+        mock_openai.assert_called_once_with(
+            api_key="test-api-key",
+            base_url="http://localhost:1234/v1",
+            default_headers={"X-Test": "1"},
+        )
+
 
 class TestOpenAIASR:
     """Test suite for OpenAI ASR functionality."""

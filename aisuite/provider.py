@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 import importlib
-import os
 import functools
 from typing import Union, BinaryIO, Optional
 
@@ -18,6 +17,29 @@ class ASRError(Exception):
 
     def __init__(self, message):
         super().__init__(message)
+
+
+def normalize_openai_compatible_config(
+    config: dict, default_base_url: Optional[str] = None
+) -> dict:
+    """
+    Normalize client config for OpenAI-compatible SDKs.
+
+    Supported aliases:
+    - ``extra_headers`` -> ``default_headers``
+    - provider-specific default ``base_url`` can be supplied without overriding an
+      explicitly configured ``base_url``
+    """
+    normalized = dict(config)
+
+    extra_headers = normalized.pop("extra_headers", None)
+    if extra_headers is not None and "default_headers" not in normalized:
+        normalized["default_headers"] = extra_headers
+
+    if default_base_url is not None:
+        normalized.setdefault("base_url", default_base_url)
+
+    return normalized
 
 
 class Provider(ABC):

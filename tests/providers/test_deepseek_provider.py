@@ -101,3 +101,19 @@ def test_deepseek_provider_with_usage():
         assert response.usage.prompt_tokens == 10
         assert response.usage.completion_tokens == 20
         assert response.usage.total_tokens == 30
+
+
+def test_deepseek_provider_preserves_explicit_base_url_and_headers():
+    """Test that explicit config is not overwritten for OpenAI-compatible clients."""
+    with patch("aisuite.providers.deepseek_provider.openai.OpenAI") as mock_openai:
+        DeepseekProvider(
+            api_key="test-api-key",
+            base_url="http://localhost:1234/v1",
+            extra_headers={"X-Test": "1"},
+        )
+
+    mock_openai.assert_called_once_with(
+        api_key="test-api-key",
+        base_url="http://localhost:1234/v1",
+        default_headers={"X-Test": "1"},
+    )

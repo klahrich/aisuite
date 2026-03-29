@@ -4,7 +4,12 @@ import pytest
 from unittest.mock import MagicMock
 from typing import Union, BinaryIO, Optional, AsyncGenerator
 
-from aisuite.provider import Provider, ASRError, Audio
+from aisuite.provider import (
+    Provider,
+    ASRError,
+    Audio,
+    normalize_openai_compatible_config,
+)
 from aisuite.framework.message import (
     TranscriptionResult,
     TranscriptionOptions,
@@ -91,6 +96,33 @@ class TestProvider:
         """Test that base Audio class initializes correctly."""
         audio = Audio()
         assert audio.transcriptions is None
+
+    def test_normalize_openai_compatible_config_maps_extra_headers(self):
+        """Test that extra_headers is normalized to default_headers."""
+        config = normalize_openai_compatible_config(
+            {
+                "api_key": "test",
+                "extra_headers": {"X-Test": "1"},
+            }
+        )
+
+        assert config["default_headers"] == {"X-Test": "1"}
+        assert "extra_headers" not in config
+
+    def test_normalize_openai_compatible_config_preserves_explicit_values(self):
+        """Test that explicit base_url and default_headers are preserved."""
+        config = normalize_openai_compatible_config(
+            {
+                "api_key": "test",
+                "base_url": "http://localhost:1234/v1",
+                "default_headers": {"Authorization": "Bearer existing"},
+                "extra_headers": {"X-Test": "1"},
+            },
+            default_base_url="https://example.com/v1",
+        )
+
+        assert config["base_url"] == "http://localhost:1234/v1"
+        assert config["default_headers"] == {"Authorization": "Bearer existing"}
 
 
 class TestASRError:

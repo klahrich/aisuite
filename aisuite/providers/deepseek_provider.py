@@ -2,7 +2,7 @@
 
 import os
 import openai
-from aisuite.provider import Provider, LLMError
+from aisuite.provider import Provider, LLMError, normalize_openai_compatible_config
 from aisuite.providers.message_converter import OpenAICompliantMessageConverter
 
 
@@ -22,7 +22,9 @@ class DeepseekProvider(Provider):
                 "DeepSeek API key is missing. Please provide it in the config or "
                 "set the OPENAI_API_KEY environment variable."
             )
-        config["base_url"] = "https://api.deepseek.com"
+        config = normalize_openai_compatible_config(
+            config, default_base_url="https://api.deepseek.com"
+        )
 
         # NOTE: We could choose to remove above lines for api_key since OpenAI will automatically
         # infer certain values from the environment variables.

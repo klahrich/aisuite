@@ -1,6 +1,6 @@
 import openai
 import os
-from aisuite.provider import Provider, LLMError
+from aisuite.provider import Provider, LLMError, normalize_openai_compatible_config
 
 
 class InceptionProvider(Provider):
@@ -15,7 +15,9 @@ class InceptionProvider(Provider):
             raise ValueError(
                 "Inception API key is missing. Please provide it in the config or set the INCEPTION_API_KEY environment variable."
             )
-        config["base_url"] = "https://api.inceptionlabs.ai/v1"
+        config = normalize_openai_compatible_config(
+            config, default_base_url="https://api.inceptionlabs.ai/v1"
+        )
 
         # Pass the entire config to the Inception client constructor using openai
         self.client = openai.OpenAI(**config)

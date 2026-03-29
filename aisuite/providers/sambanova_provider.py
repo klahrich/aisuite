@@ -1,5 +1,9 @@
 import os
-from aisuite.provider import Provider, LLMError
+from aisuite.provider import (
+    Provider,
+    LLMError,
+    normalize_openai_compatible_config,
+)
 from openai import OpenAI
 from aisuite.providers.message_converter import OpenAICompliantMessageConverter
 
@@ -30,7 +34,9 @@ class SambanovaProvider(Provider):
             )
 
         config["api_key"] = self.api_key
-        config["base_url"] = "https://api.sambanova.ai/v1/"
+        config = normalize_openai_compatible_config(
+            config, default_base_url="https://api.sambanova.ai/v1/"
+        )
         # Pass the entire config to the OpenAI client constructor
         self.client = OpenAI(**config)
         self.transformer = SambanovaMessageConverter()
