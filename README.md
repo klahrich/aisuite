@@ -79,6 +79,12 @@ Install aisuite with a specific provider (e.g., Anthropic):
 pip install 'aisuite[anthropic]'
 ```
 
+Install direct Gemini support:
+
+```shell
+pip install 'aisuite[gemini]'
+```
+
 Install aisuite with all provider libraries:
 
 ```shell
@@ -128,6 +134,83 @@ for model in models:
 Note that the model name in the create() call uses the format - `<provider>:<model-name>`.
 `aisuite` will call the appropriate provider with the right parameters based on the provider value.
 For a list of provider values, you can look at the directory - `aisuite/providers/`. The list of supported providers are of the format - `<provider>_provider.py` in that directory. We welcome providers to add support to this library by adding an implementation file in this directory. Please see section below for how to contribute.
+
+Examples:
+- `google:gemini-1.5-pro-001` uses the existing Vertex AI-based Google provider
+- `gemini:gemini-2.5-flash` uses the direct Gemini Developer API provider via `google-genai`
+
+Direct Gemini example:
+
+```python
+import aisuite as ai
+
+client = ai.Client({
+    "gemini": {
+        "api_key": "YOUR_GEMINI_API_KEY",
+    }
+})
+
+response = client.chat.completions.create(
+    model="gemini:gemini-2.5-flash",
+    messages=[
+        {"role": "system", "content": "Be concise."},
+        {"role": "user", "content": "Explain recursion in one paragraph."},
+    ],
+    temperature=0.2,
+)
+
+print(response.choices[0].message.content)
+```
+
+Direct Gemini tool-calling example:
+
+```python
+import aisuite as ai
+
+
+def get_weather(location: str) -> dict:
+    """Get a mock weather report for a city."""
+    return {"location": location, "forecast": "sunny"}
+
+
+client = ai.Client({
+    "gemini": {
+        "api_key": "YOUR_GEMINI_API_KEY",
+    }
+})
+
+response = client.chat.completions.create(
+    model="gemini:gemini-2.5-flash",
+    messages=[{"role": "user", "content": "What is the weather in Paris?"}],
+    tools=[get_weather],
+    return_tool_results=True,
+)
+
+print(response.choices[0].tool_results)
+```
+
+Direct Gemini Google Search grounding example:
+
+```python
+import aisuite as ai
+from google.genai import types
+
+client = ai.Client({
+    "gemini": {
+        "api_key": "YOUR_GEMINI_API_KEY",
+    }
+})
+
+response = client.chat.completions.create(
+    model="gemini:gemini-2.5-flash",
+    messages=[{"role": "user", "content": "What happened in AI today?"}],
+    tools=[types.Tool(google_search=types.GoogleSearch())],
+)
+
+print(response.choices[0].message.content)
+```
+
+Note: the `gemini` provider is for the Gemini Developer API. If you are targeting an OpenAI-compatible local gateway, use the `openai` provider instead of `gemini`, even if the underlying model is Gemini.
 
 For more examples, check out the `examples` directory where you will find several notebooks that you can run to experiment with the interface.
 

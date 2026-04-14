@@ -33,6 +33,9 @@ def provider_configs():
             "region": "us-west4",
             "application_credentials": "test_google_application_credentials",
         },
+        "gemini": {
+            "api_key": "test_gemini_api_key",
+        },
         "fireworks": {
             "api_key": "fireworks-api-key",
         },
@@ -85,6 +88,11 @@ def provider_configs():
             "aisuite.providers.google_provider.GoogleProvider.chat_completions_create",
             "google",
             "google-model",
+        ),
+        (
+            "aisuite.providers.gemini_provider.GeminiProvider.chat_completions_create",
+            "gemini",
+            "gemini-2.5-flash",
         ),
         (
             "aisuite.providers.fireworks_provider.FireworksProvider.chat_completions_create",
