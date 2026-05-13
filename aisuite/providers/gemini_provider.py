@@ -277,14 +277,24 @@ class GeminiProvider(Provider):
     """Direct Gemini provider via googleapis/python-genai."""
 
     def __init__(self, **config):
-        api_key = config.get("api_key") or os.getenv("GEMINI_API_KEY") or os.getenv(
-            "GOOGLE_API_KEY"
-        )
-        if not api_key:
-            raise ValueError(
-                "Gemini API key is missing. Please provide it in the config or set "
-                "GEMINI_API_KEY (or GOOGLE_API_KEY)."
+        use_vertex = bool(config.get("vertexai"))
+
+        if use_vertex:
+            api_key = config.get("api_key") or os.getenv("VERTEX_API_KEY")
+            if not api_key:
+                raise ValueError(
+                    "Vertex AI (Express Mode) requires an API key. Provide `api_key` "
+                    "in the config or set VERTEX_API_KEY."
+                )
+        else:
+            api_key = config.get("api_key") or os.getenv("GEMINI_API_KEY") or os.getenv(
+                "GOOGLE_API_KEY"
             )
+            if not api_key:
+                raise ValueError(
+                    "Gemini API key is missing. Please provide it in the config or set "
+                    "GEMINI_API_KEY (or GOOGLE_API_KEY)."
+                )
 
         config = self._normalize_client_config(config)
         config.setdefault("api_key", api_key)
